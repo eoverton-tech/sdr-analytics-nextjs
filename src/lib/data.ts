@@ -54,14 +54,11 @@ export interface TrendData {
 
 // Sample Reps
 export const reps: Rep[] = [
-  { id: '1', name: 'Sarah Johnson', initials: 'SJ', team: 'Enterprise' },
-  { id: '2', name: 'Michael Chen', initials: 'MC', team: 'Enterprise' },
-  { id: '3', name: 'Emily Rodriguez', initials: 'ER', team: 'Mid-Market' },
-  { id: '4', name: 'David Kim', initials: 'DK', team: 'Mid-Market' },
-  { id: '5', name: 'Jessica Williams', initials: 'JW', team: 'SMB' },
-  { id: '6', name: 'James Brown', initials: 'JB', team: 'SMB' },
-  { id: '7', name: 'Ashley Davis', initials: 'AD', team: 'Enterprise' },
-  { id: '8', name: 'Ryan Martinez', initials: 'RM', team: 'Mid-Market' },
+  { id: '1', name: 'Jordan Conneely', initials: 'JC', team: 'Enterprise' },
+  { id: '2', name: 'Ryan Sherman', initials: 'RS', team: 'Enterprise' },
+  { id: '3', name: 'John Brown', initials: 'JB', team: 'Mid-Market' },
+  { id: '4', name: 'Misti Gibbens', initials: 'MG', team: 'Mid-Market' },
+  { id: '5', name: 'Allison Jean-Pierre', initials: 'AJ', team: 'SMB' },
 ];
 
 // Generate daily activity for today
