@@ -1,13 +1,17 @@
 "use client";
 
-import { getFunnelData, getTrendData, reps, getDailyActivity, getCoachingScores } from "@/lib/data";
-import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, BarChart, Bar, Legend, RadarChart, Radar, PolarGrid, PolarAngleAxis, PolarRadiusAxis } from "recharts";
+import { useState } from "react";
+import { getFunnelData, getTrendData, reps, getDailyActivity, getCoachingScores, getAllRepFunnels, TimePeriod } from "@/lib/data";
+import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, BarChart, Bar, Legend } from "recharts";
 import { cn } from "@/lib/utils";
 
 export default function AnalyticsPage() {
-  const funnel = getFunnelData();
-  const trends = getTrendData();
-  const activities = getDailyActivity();
+  const [timePeriod, setTimePeriod] = useState<TimePeriod>('weekly');
+
+  const funnel = getFunnelData(timePeriod);
+  const repFunnels = getAllRepFunnels(timePeriod);
+  const trends = getTrendData(timePeriod);
+  const activities = getDailyActivity(timePeriod);
   const coachingScores = getCoachingScores();
 
   const funnelStages = [
@@ -21,32 +25,30 @@ export default function AnalyticsPage() {
   const sdrPerformanceData = activities.map(activity => {
     const rep = reps.find(r => r.id === activity.rep_id)!;
     const score = coachingScores.find(s => s.rep_id === activity.rep_id)!;
+    const repFunnel = repFunnels.find(f => f.rep_id === activity.rep_id)!;
     return {
       name: rep.name.split(' ')[0],
       fullName: rep.name,
       calls: activity.calls,
       emails: activity.emails,
       connects: activity.connects,
-      pipeline: Math.round(activity.pipeline_value / 1000),
-      opps: activity.opps,
+      pipeline: Math.round(repFunnel.pipeline_value / 1000),
+      opps: repFunnel.opportunities,
+      meetings: repFunnel.meetings_booked,
       talkPercent: activity.talk_percentage,
       coachingScore: score.overall_score,
+      contactsReached: repFunnel.contacts_reached,
+      conversations: repFunnel.conversations,
     };
   });
 
-  // SDR Activity Comparison (stacked bar chart data)
-  const sdrActivityComparison = sdrPerformanceData.map(sdr => ({
+  // SDR Funnel Comparison
+  const sdrFunnelData = sdrPerformanceData.map(sdr => ({
     name: sdr.name,
-    Calls: sdr.calls,
-    Emails: sdr.emails,
-  }));
-
-  // SDR Outcomes Comparison
-  const sdrOutcomesData = sdrPerformanceData.map(sdr => ({
-    name: sdr.name,
-    Connects: sdr.connects,
-    Opps: sdr.opps,
-    'Pipeline ($K)': sdr.pipeline,
+    'Contacts': sdr.contactsReached,
+    'Conversations': sdr.conversations,
+    'Meetings': sdr.meetings,
+    'Opps': sdr.opps,
   }));
 
   // Team averages for comparison
@@ -56,15 +58,36 @@ export default function AnalyticsPage() {
     connects: Math.round(activities.reduce((sum, a) => sum + a.connects, 0) / activities.length),
     talkPercent: Math.round(activities.reduce((sum, a) => sum + a.talk_percentage, 0) / activities.length),
     coachingScore: Math.round(coachingScores.reduce((sum, s) => sum + s.overall_score, 0) / coachingScores.length),
+    meetings: Math.round(repFunnels.reduce((sum, f) => sum + f.meetings_booked, 0) / repFunnels.length),
+    opps: Math.round(repFunnels.reduce((sum, f) => sum + f.opportunities, 0) / repFunnels.length),
+  };
+
+  const periodLabels = {
+    daily: 'Today',
+    weekly: 'This Week',
+    monthly: 'This Month',
+    quarterly: 'This Quarter',
   };
 
   return (
     <div className="space-y-6">
-      <h1 className="text-2xl font-bold text-white">Analytics</h1>
+      <div className="flex items-center justify-between">
+        <h1 className="text-2xl font-bold text-white">Analytics</h1>
+        <select
+          value={timePeriod}
+          onChange={(e) => setTimePeriod(e.target.value as TimePeriod)}
+          className="bg-[#1e293b] border border-[#334155] rounded-lg px-4 py-2 text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+        >
+          <option value="daily">Daily</option>
+          <option value="weekly">Weekly</option>
+          <option value="monthly">Monthly</option>
+          <option value="quarterly">Quarterly</option>
+        </select>
+      </div>
 
-      {/* Funnel Section */}
+      {/* Team Conversion Funnel */}
       <div className="bg-[#1e293b] rounded-xl border border-[#334155] p-6">
-        <h2 className="text-lg font-semibold text-white mb-6">Conversion Funnel</h2>
+        <h2 className="text-lg font-semibold text-white mb-6">Team Conversion Funnel - {periodLabels[timePeriod]}</h2>
         <div className="grid grid-cols-4 gap-4 mb-8">
           {funnelStages.map((stage, index) => (
             <div key={stage.name} className="text-center">
@@ -93,14 +116,37 @@ export default function AnalyticsPage() {
           </div>
           <div>
             <span className="text-slate-400">Avg Deal Size</span>
-            <div className="text-3xl font-bold text-white">${Math.round(funnel.pipeline_value / funnel.opportunities).toLocaleString()}</div>
+            <div className="text-3xl font-bold text-white">
+              ${funnel.opportunities > 0 ? Math.round(funnel.pipeline_value / funnel.opportunities).toLocaleString() : 0}
+            </div>
           </div>
         </div>
       </div>
 
-      {/* SDR Performance Comparison */}
+      {/* SDR Funnel Comparison */}
       <div className="bg-[#1e293b] rounded-xl border border-[#334155] p-6">
-        <h2 className="text-lg font-semibold text-white mb-4">SDR Performance Comparison</h2>
+        <h2 className="text-lg font-semibold text-white mb-4">SDR Funnel Comparison - {periodLabels[timePeriod]}</h2>
+        <ResponsiveContainer width="100%" height={300}>
+          <BarChart data={sdrFunnelData}>
+            <CartesianGrid strokeDasharray="3 3" stroke="#334155" />
+            <XAxis dataKey="name" stroke="#94a3b8" fontSize={12} />
+            <YAxis stroke="#94a3b8" fontSize={12} />
+            <Tooltip
+              contentStyle={{ backgroundColor: '#1e293b', border: '1px solid #334155', borderRadius: '8px' }}
+              labelStyle={{ color: '#fff' }}
+            />
+            <Legend />
+            <Bar dataKey="Contacts" fill="#3b82f6" radius={[4, 4, 0, 0]} />
+            <Bar dataKey="Conversations" fill="#6366f1" radius={[4, 4, 0, 0]} />
+            <Bar dataKey="Meetings" fill="#8b5cf6" radius={[4, 4, 0, 0]} />
+            <Bar dataKey="Opps" fill="#a855f7" radius={[4, 4, 0, 0]} />
+          </BarChart>
+        </ResponsiveContainer>
+      </div>
+
+      {/* SDR Performance Comparison Table */}
+      <div className="bg-[#1e293b] rounded-xl border border-[#334155] p-6">
+        <h2 className="text-lg font-semibold text-white mb-4">SDR Performance - {periodLabels[timePeriod]}</h2>
         <div className="overflow-x-auto">
           <table className="w-full">
             <thead>
@@ -109,10 +155,10 @@ export default function AnalyticsPage() {
                 <th className="text-center text-xs font-medium text-slate-500 uppercase px-4 py-3">Calls</th>
                 <th className="text-center text-xs font-medium text-slate-500 uppercase px-4 py-3">Emails</th>
                 <th className="text-center text-xs font-medium text-slate-500 uppercase px-4 py-3">Connects</th>
-                <th className="text-center text-xs font-medium text-slate-500 uppercase px-4 py-3">Talk %</th>
+                <th className="text-center text-xs font-medium text-slate-500 uppercase px-4 py-3">Meetings</th>
                 <th className="text-center text-xs font-medium text-slate-500 uppercase px-4 py-3">Opps</th>
                 <th className="text-center text-xs font-medium text-slate-500 uppercase px-4 py-3">Pipeline</th>
-                <th className="text-center text-xs font-medium text-slate-500 uppercase px-4 py-3">Coaching Score</th>
+                <th className="text-center text-xs font-medium text-slate-500 uppercase px-4 py-3">Talk %</th>
               </tr>
             </thead>
             <tbody>
@@ -146,21 +192,27 @@ export default function AnalyticsPage() {
                   <td className="px-4 py-3 text-center">
                     <span className={cn(
                       "px-2 py-1 rounded text-sm font-medium",
-                      sdr.talkPercent >= 50 ? "bg-green-500/20 text-green-400" :
-                      sdr.talkPercent >= 40 ? "bg-amber-500/20 text-amber-400" : "bg-red-500/20 text-red-400"
+                      sdr.meetings >= teamAvg.meetings ? "bg-green-500/20 text-green-400" : "bg-amber-500/20 text-amber-400"
                     )}>
-                      {sdr.talkPercent}%
+                      {sdr.meetings}
                     </span>
                   </td>
-                  <td className="px-4 py-3 text-center text-white font-medium">{sdr.opps}</td>
+                  <td className="px-4 py-3 text-center">
+                    <span className={cn(
+                      "px-2 py-1 rounded text-sm font-medium",
+                      sdr.opps >= teamAvg.opps ? "bg-green-500/20 text-green-400" : "bg-amber-500/20 text-amber-400"
+                    )}>
+                      {sdr.opps}
+                    </span>
+                  </td>
                   <td className="px-4 py-3 text-center text-green-400 font-medium">${sdr.pipeline}k</td>
                   <td className="px-4 py-3 text-center">
                     <span className={cn(
                       "px-2 py-1 rounded text-sm font-medium",
-                      sdr.coachingScore >= 75 ? "bg-green-500/20 text-green-400" :
-                      sdr.coachingScore >= 60 ? "bg-amber-500/20 text-amber-400" : "bg-red-500/20 text-red-400"
+                      sdr.talkPercent >= 50 ? "bg-green-500/20 text-green-400" :
+                      sdr.talkPercent >= 40 ? "bg-amber-500/20 text-amber-400" : "bg-red-500/20 text-red-400"
                     )}>
-                      {sdr.coachingScore}
+                      {sdr.talkPercent}%
                     </span>
                   </td>
                 </tr>
@@ -171,62 +223,23 @@ export default function AnalyticsPage() {
                 <td className="px-4 py-3 text-center text-slate-400">{teamAvg.calls}</td>
                 <td className="px-4 py-3 text-center text-slate-400">{teamAvg.emails}</td>
                 <td className="px-4 py-3 text-center text-slate-400">{teamAvg.connects}</td>
+                <td className="px-4 py-3 text-center text-slate-400">{teamAvg.meetings}</td>
+                <td className="px-4 py-3 text-center text-slate-400">{teamAvg.opps}</td>
+                <td className="px-4 py-3 text-center text-slate-400">-</td>
                 <td className="px-4 py-3 text-center text-slate-400">{teamAvg.talkPercent}%</td>
-                <td className="px-4 py-3 text-center text-slate-400">-</td>
-                <td className="px-4 py-3 text-center text-slate-400">-</td>
-                <td className="px-4 py-3 text-center text-slate-400">{teamAvg.coachingScore}</td>
               </tr>
             </tbody>
           </table>
         </div>
         <p className="text-xs text-slate-500 mt-3">
-          Green = above team average | Red = below team average
+          Green = above team average | Red/Amber = at or below team average
         </p>
-      </div>
-
-      {/* SDR Activity & Outcomes Charts */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <div className="bg-[#1e293b] rounded-xl border border-[#334155] p-6">
-          <h2 className="text-lg font-semibold text-white mb-4">SDR Activity (Calls & Emails)</h2>
-          <ResponsiveContainer width="100%" height={300}>
-            <BarChart data={sdrActivityComparison}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#334155" />
-              <XAxis dataKey="name" stroke="#94a3b8" fontSize={12} />
-              <YAxis stroke="#94a3b8" fontSize={12} />
-              <Tooltip
-                contentStyle={{ backgroundColor: '#1e293b', border: '1px solid #334155', borderRadius: '8px' }}
-                labelStyle={{ color: '#fff' }}
-              />
-              <Legend />
-              <Bar dataKey="Calls" fill="#3b82f6" radius={[4, 4, 0, 0]} />
-              <Bar dataKey="Emails" fill="#8b5cf6" radius={[4, 4, 0, 0]} />
-            </BarChart>
-          </ResponsiveContainer>
-        </div>
-
-        <div className="bg-[#1e293b] rounded-xl border border-[#334155] p-6">
-          <h2 className="text-lg font-semibold text-white mb-4">SDR Outcomes (Connects & Opps)</h2>
-          <ResponsiveContainer width="100%" height={300}>
-            <BarChart data={sdrOutcomesData}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#334155" />
-              <XAxis dataKey="name" stroke="#94a3b8" fontSize={12} />
-              <YAxis stroke="#94a3b8" fontSize={12} />
-              <Tooltip
-                contentStyle={{ backgroundColor: '#1e293b', border: '1px solid #334155', borderRadius: '8px' }}
-                labelStyle={{ color: '#fff' }}
-              />
-              <Legend />
-              <Bar dataKey="Connects" fill="#10b981" radius={[4, 4, 0, 0]} />
-              <Bar dataKey="Opps" fill="#f59e0b" radius={[4, 4, 0, 0]} />
-            </BarChart>
-          </ResponsiveContainer>
-        </div>
       </div>
 
       {/* Trend Charts */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <div className="bg-[#1e293b] rounded-xl border border-[#334155] p-6">
-          <h2 className="text-lg font-semibold text-white mb-4">Team Activity Trends (12 Weeks)</h2>
+          <h2 className="text-lg font-semibold text-white mb-4">Activity Trends</h2>
           <ResponsiveContainer width="100%" height={300}>
             <AreaChart data={trends}>
               <CartesianGrid strokeDasharray="3 3" stroke="#334155" />
@@ -244,7 +257,7 @@ export default function AnalyticsPage() {
         </div>
 
         <div className="bg-[#1e293b] rounded-xl border border-[#334155] p-6">
-          <h2 className="text-lg font-semibold text-white mb-4">Team Outcomes (12 Weeks)</h2>
+          <h2 className="text-lg font-semibold text-white mb-4">Outcomes Trends</h2>
           <ResponsiveContainer width="100%" height={300}>
             <BarChart data={trends}>
               <CartesianGrid strokeDasharray="3 3" stroke="#334155" />
@@ -259,6 +272,27 @@ export default function AnalyticsPage() {
               <Bar dataKey="meetings" fill="#f59e0b" name="Meetings" radius={[4, 4, 0, 0]} />
             </BarChart>
           </ResponsiveContainer>
+        </div>
+      </div>
+
+      {/* Data Sources Footer */}
+      <div className="bg-[#0f172a] rounded-lg border border-[#334155] p-4">
+        <div className="flex items-center justify-between">
+          <span className="text-sm text-slate-400">Data Sources:</span>
+          <div className="flex items-center gap-4 text-xs">
+            <span className="flex items-center gap-1">
+              <span className="w-2 h-2 rounded-full bg-blue-500"></span>
+              Salesforce (Calls, Opps, Pipeline)
+            </span>
+            <span className="flex items-center gap-1">
+              <span className="w-2 h-2 rounded-full bg-purple-500"></span>
+              Groove (Emails, Sequences)
+            </span>
+            <span className="flex items-center gap-1">
+              <span className="w-2 h-2 rounded-full bg-green-500"></span>
+              CoPilot (Talk %, Quality Scores)
+            </span>
+          </div>
         </div>
       </div>
     </div>

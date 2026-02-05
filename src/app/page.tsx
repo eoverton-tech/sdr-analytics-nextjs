@@ -17,11 +17,13 @@ export default function Home() {
         message="2 reps need immediate attention"
         type="warning"
         actionText="Review now"
+        actionHref="/coaching"
       />
       <AlertBanner
         message={`Only ${summary.totalOpps} opps this week - team is behind pace`}
         type="info"
         actionText="View analytics"
+        actionHref="/analytics"
       />
 
       {/* Metric Cards */}

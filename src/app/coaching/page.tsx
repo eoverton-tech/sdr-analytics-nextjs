@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import { reps, getCoachingScores } from "@/lib/data";
 import { cn } from "@/lib/utils";
-import { RadarChart, Radar, PolarGrid, PolarAngleAxis, PolarRadiusAxis, ResponsiveContainer, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip } from "recharts";
+import { RadarChart, Radar, PolarGrid, PolarAngleAxis, PolarRadiusAxis, ResponsiveContainer } from "recharts";
 
 // Role Play Grading Criteria
 const ROLEPLAY_CRITERIA = [
@@ -111,15 +111,6 @@ export default function CoachingPage() {
     { category: "Metrics", score: repScore.uncovered_metrics, fullMark: 100 },
     { category: "Next\nSteps", score: repScore.scheduled_next_steps, fullMark: 100 },
   ];
-
-  const teamComparison = scores.map(s => {
-    const r = reps.find(rep => rep.id === s.rep_id)!;
-    return {
-      name: r.name.split(' ')[0],
-      score: s.overall_score,
-      isSelected: s.rep_id === selectedRep,
-    };
-  }).sort((a, b) => b.score - a.score);
 
   const getScoreColor = (score: number) => {
     if (score >= 80) return "text-green-400";
@@ -345,27 +336,6 @@ export default function CoachingPage() {
             </span>
           ))}
         </div>
-      </div>
-
-      {/* Team Comparison */}
-      <div className="bg-[#1e293b] rounded-xl border border-[#334155] p-6">
-        <h3 className="text-lg font-semibold text-white mb-4">Team Comparison</h3>
-        <ResponsiveContainer width="100%" height={300}>
-          <BarChart data={teamComparison} layout="vertical">
-            <CartesianGrid strokeDasharray="3 3" stroke="#334155" />
-            <XAxis type="number" domain={[0, 100]} stroke="#94a3b8" />
-            <YAxis type="category" dataKey="name" stroke="#94a3b8" width={80} />
-            <Tooltip
-              contentStyle={{ backgroundColor: '#1e293b', border: '1px solid #334155', borderRadius: '8px' }}
-              labelStyle={{ color: '#fff' }}
-            />
-            <Bar
-              dataKey="score"
-              radius={[0, 4, 4, 0]}
-              fill="#3b82f6"
-            />
-          </BarChart>
-        </ResponsiveContainer>
       </div>
 
       {/* Score Edit Modal */}
